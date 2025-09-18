@@ -2,6 +2,8 @@
 title: Quarto Computations
 ---
 
+github repo for lab 0: [https://github.com/vinampud/gsb544/tree/main/lab0](https://github.com/vinampud/gsb544/tree/main/lab0)
+
 This dataset contains a subset of the fuel economy data from the EPA.
 
 ```{python}

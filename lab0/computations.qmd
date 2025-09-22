@@ -1,5 +1,8 @@
 ---
 title: Quarto Computations
+format:
+    html:
+        embed-resources: true
 ---
 
 github repo for lab 0: [https://github.com/vinampud/gsb544/tree/main/lab0](https://github.com/vinampud/gsb544/tree/main/lab0)

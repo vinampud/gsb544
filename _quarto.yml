@@ -1,0 +1,5 @@
+execute:
+  enabled: true   # run the notebook cells before rendering
+format:
+  html:
+    embed-resources: true  # bake all plots/images inside the HTML file

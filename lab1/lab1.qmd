@@ -1,0 +1,178 @@
+Repo: [https://github.com/vinampud/gsb544/tree/main/lab1](https://github.com/vinampud/gsb544/tree/main/lab1)
+
+**Task 1**
+
+For Task 1's bubble chart, the:
+- x-axis: Income
+- y-axis: Life Expectancy
+- bubble size: Population size
+- Bubble color: grouped by 4 continent regions (asia, europe, americas, africa)
+- time bar/adjuster: year
+
+```{python}
+%echo
+import pandas as pd
+import numpy as np
+from plotnine import *
+```
+
+```{python}
+q1data = "..\data\q1data.csv"
+df1 = pd.read_csv(q1data)
+print(df1.columns)
+```
+
+recreating the plot
+```{python}
+(ggplot(df1, aes(x="income", y = "life_exp")) + 
+geom_point(aes(size="population", color =  "four_regions"), alpha=0.7) 
++ scale_x_continuous(
+    trans='log2',
+    limits=(0, 128000),
+    breaks=[500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000],
+    labels=['500', '1000', '2000', '4000', '8000', '16k', '32k', '64k', '128k']
+) 
++ scale_y_continuous(
+    limits=[0, 100],
+    breaks = np.arange(0, 101, 10)
+) 
++ scale_size_continuous(range=[0,20]) 
++ scale_color_manual(
+    values = {
+        "africa": "blue",
+        "americas": "green",
+        "asia": "red",
+        "europe": "yellow",
+        "nan": "black"
+    }
+)
+)
+```
+
+Alternate plot: boxplot
+```{python}
+(ggplot(df1, aes(x="income", y="life_exp", fill="four_regions")) + geom_boxplot())
+```
+This boxplot does a good job of giving a basic distribution of income in each of the four regios. The only drawback is the fact that we can't really account of population size. the Asia region has super large countries with super large populations. Also, the bubble chart had a bubbble for each individual country in the data, where as the boplot combines them into their region, going hand in hand with the population size drawback; we can't see the differences that larger/smaller countries make on the region's overall income vs life expectancy relationship.
+
+**Task 2**
+
+For Task 2's bubble chart, the:
+- x-axis: Exports / % of GDP
+- y-axis: Imports / % of GDP
+- bubble size: Energy Use
+- Bubble color: grouped by 4 continent regions (asia, europe, americas, africa)
+- time bar/adjuster: year
+
+```{python}
+q2data = "../data/q2data.csv"
+df2 = pd.read_csv(q2data)
+print(df2.head())
+print(df2.columns)
+```
+
+```{python}
+def convert_to_float(val):
+    if isinstance(val, str):
+        val = val.strip().lower()
+        if val.endswith("k"):
+            return float(val[:-1])*1000
+        else:
+            return float(val)
+
+df2["energy"] = df2["energy"].apply(convert_to_float)
+(ggplot(df2, aes(x="exports", y = "imports")) + 
+geom_point(aes(size="energy", color =  "four_regions"), alpha = 0.7) + 
+scale_x_continuous(
+    limits=(0, 200),
+    breaks = np.arange(0, 201, 20)
+) +
+scale_y_continuous(
+    limits=(0, 300),
+    breaks = np.arange(0, 301, 50)
+) + 
+scale_size_continuous(range=[0,20]) +
+scale_color_manual(
+    values = {
+        "africa": "blue",
+        "americas": "green",
+        "asia": "red",
+        "europe": "yellow",
+        "nan": "black"
+    }
+)
+)
+```
+
+alternate plot: heatmap
+```{python}
+(ggplot(df2, aes(x="exports", y="imports"))+ 
+geom_bin2d(bins=40)+ 
+geom_abline(slope=1, intercept=0, linetype="dashed")+ 
+coord_equal()+ 
+scale_x_continuous(
+    limits=(0, 200),
+    breaks = np.arange(0, 201, 20)
+    ) +
+scale_y_continuous(
+    limits=(0, 300),
+    breaks = np.arange(0, 301, 50)
+))
+```
+
+Like the previous task, using a binned heatmap helps with depicting the exports vs imports relationship. With this graph, we can even see things ike when a country runs surpluses or deficits, based on whether that relationship is shown above or below the line, respectively. But lie mentioned before, we can't actually see which country specifically is depicted on here so we just have the overal distribution. We also lose the third variable info, like energy usage and how that's related here.
+
+**Task 3**
+
+For Task 3's bubble chart, the:
+- x-axis: Internet Users
+- y-axis: GDP per capita
+- bubble size: Population size
+- Bubble color: grouped by 4 continent regions (asia, europe, americas, africa)
+- time bar/adjuster: year
+
+```{python}
+q3data = "../data/q3data.csv"
+df3 = pd.read_csv(q3data)
+print(df3.head())
+print(df3.columns)
+```
+
+```{python}
+(ggplot(df3, aes(x="internet_users", y = "gdp")) + 
+geom_point(aes(size="income", color =  "four_regions"), alpha = 0.7) + 
+scale_x_continuous(
+    limits=(0, 80),
+    breaks = np.arange(0, 81, 10)
+) +
+scale_y_log10(
+    breaks=[200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000]
+) + 
+scale_size_continuous(range=[0,20]) +
+scale_color_manual(
+    values = {
+        "africa": "blue",
+        "americas": "green",
+        "asia": "red",
+        "europe": "yellow",
+        "nan": "black"
+    }
+)
+)
+```
+
+alternate plot: 
+```{python}
+(
+    ggplot(df3, aes(x="internet_users", y="gdp", color="four_regions"))
+    + geom_smooth(method="loess", se=False, span=0.8)
+    + scale_x_continuous(
+        limits=(0, 80), 
+        breaks=np.arange(0, 81, 10))
+    + scale_y_log10(
+        breaks=[200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000]
+    )
+)
+```
+
+I used geom_bin2d to handle overplotting and reveal where countries cluster across internet use and GDP. This makes the distribution clear, especially with a log y-axis—but it drops the country-level size mapping to income. As a second view, geom_smooth also highlights the trend by region but also sacrifices individual detail and the income size cue.

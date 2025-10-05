@@ -17,7 +17,7 @@ from plotnine import *
 ```
 
 ```{python}
-q1data = "..\data\q1data.csv"
+q1data = "data/q1data.csv"
 df1 = pd.read_csv(q1data)
 print(df1.columns)
 ```

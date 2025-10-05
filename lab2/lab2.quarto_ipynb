@@ -4,11 +4,11 @@
       "cell_type": "markdown",
       "metadata": {},
       "source": [
-        "Repo: [https://github.com/vinampud/gsb544/tree/main/lab1](https://github.com/vinampud/gsb544/tree/main/lab2)\n",
+        "Repo: [https://github.com/vinampud/gsb544/tree/main/lab2](https://github.com/vinampud/gsb544/tree/main/lab2)\n",
         "\n",
         "**0. Import the data and declare your package dependencies.**"
       ],
-      "id": "8f649875"
+      "id": "88a740bc"
     },
     {
       "cell_type": "code",
@@ -23,7 +23,7 @@
         "os.chdir(\"C:/Users/ivpri/gsb544/lab2\")\n",
         "avocado_data = pd.read_csv(\"../data/avocado-updated-2020.csv\")"
       ],
-      "id": "4679f8a7",
+      "id": "e01fa5e1",
       "execution_count": null,
       "outputs": []
     },
@@ -38,7 +38,7 @@
         "\n",
         "**2. Clean the data in any way you see fit.**"
       ],
-      "id": "5af6b32b"
+      "id": "bb73dea6"
     },
     {
       "cell_type": "code",
@@ -116,7 +116,7 @@
         "\n",
         "avocado_clean[\"major_region5\"] = avocado_data[\"geography\"].map(major5_map)"
       ],
-      "id": "820963c1",
+      "id": "16770531",
       "execution_count": null,
       "outputs": []
     },
@@ -127,7 +127,7 @@
         "avocado_clean.isnull().sum()\n",
         "avocado_clean.rename(columns={\"4046\": \"small-hass\", \"4225\": \"large-hass\", \"4770\": \"xlarge-hass\"}, inplace=True)"
       ],
-      "id": "1b9a26e2",
+      "id": "534c0807",
       "execution_count": null,
       "outputs": []
     },
@@ -140,7 +140,7 @@
         "\n",
         "**3. Which major geographical region sold the most total organic, small Hass avocados in 2017?**"
       ],
-      "id": "4014660d"
+      "id": "c95bdcf8"
     },
     {
       "cell_type": "code",
@@ -152,7 +152,7 @@
         "\n",
         "organic_small.groupby(\"major_region5\")[\"small-hass\"].sum().sort_values(ascending=False)"
       ],
-      "id": "a8bedbb6",
+      "id": "e91ad064",
       "execution_count": null,
       "outputs": []
     },
@@ -165,7 +165,7 @@
         "\n",
         "**4. Split the date variable into month, day, and year variables. In which month is the highest average volume of avocado sales?**"
       ],
-      "id": "5a87a8e2"
+      "id": "c9f91eec"
     },
     {
       "cell_type": "code",
@@ -178,7 +178,7 @@
         "\n",
         "avocado_clean.groupby(\"month\")[\"total_volume\"].mean().sort_values(ascending=False)"
       ],
-      "id": "05d5073a",
+      "id": "322888f5",
       "execution_count": null,
       "outputs": []
     },
@@ -191,7 +191,7 @@
         "\n",
         "**5. Which metro area geographical regions sold the most total avocados? Plot side-by-side box-plots of the total volume for only the five metro geographical regions with the highest averages for the total_volume variable.**"
       ],
-      "id": "abe00b97"
+      "id": "a34935a4"
     },
     {
       "cell_type": "code",
@@ -223,7 +223,7 @@
         "\n",
         "avocado_clean[\"geo_type\"] = avocado_clean[\"geography\"].apply(classify_geo)"
       ],
-      "id": "9766fb42",
+      "id": "a2363150",
       "execution_count": null,
       "outputs": []
     },
@@ -249,7 +249,7 @@
         "))\n",
         "# then for those, boxplots"
       ],
-      "id": "0608b9d3",
+      "id": "b53c69da",
       "execution_count": null,
       "outputs": []
     },
@@ -259,7 +259,7 @@
       "source": [
         "**6. From your cleaned data set, create a data set with only these California regions and answer the following questions about these California regions only.**"
       ],
-      "id": "758a8874"
+      "id": "10462a65"
     },
     {
       "cell_type": "code",
@@ -268,7 +268,7 @@
         "california = avocado_clean[avocado_clean[\"geography\"].isin([\"Los Angeles\", \"San Diego\", \"Sacramento\", \"San Francisco\"])]\n",
         "california"
       ],
-      "id": "aef567c7",
+      "id": "19b8fdd1",
       "execution_count": null,
       "outputs": []
     },
@@ -278,7 +278,7 @@
       "source": [
         "**7. In which California regions is the price of organic versus conventional avocados most different? Support your answer with a few summary statistics AND a visualization.**"
       ],
-      "id": "507f58ed"
+      "id": "2a57c39c"
     },
     {
       "cell_type": "code",
@@ -293,7 +293,7 @@
         "summary = ca_with_dates.groupby(\"geography\")[\"price_diff\"].agg([\"mean\", \"std\", \"min\", \"max\"])\n",
         "summary.reset_index(inplace=True)"
       ],
-      "id": "9533a72c",
+      "id": "9197b6eb",
       "execution_count": null,
       "outputs": []
     },
@@ -303,7 +303,7 @@
       "source": [
         "summary"
       ],
-      "id": "36f66568",
+      "id": "f2b2ce1f",
       "execution_count": null,
       "outputs": []
     },
@@ -318,7 +318,7 @@
         "    y=\"difference in average price\"\n",
         "))"
       ],
-      "id": "edc67811",
+      "id": "39c5c4f1",
       "execution_count": null,
       "outputs": []
     },
@@ -328,7 +328,7 @@
       "source": [
         "**8. The following plot shows, for all four California regions, the proportion of the average Hass avocado sales that are small, large, or extra large; conventional vs. organic. Recreate the plot; you do not have to replicate the exact finishing touches - e.g., color, theme - but your plot should resemble the content of this plot.**"
       ],
-      "id": "d1e8f771"
+      "id": "b36e5434"
     },
     {
       "cell_type": "code",
@@ -368,7 +368,7 @@
         ")\n",
         "+ theme(axis_text_x=element_text(rotation=45, ha='right')))"
       ],
-      "id": "dc9c3461",
+      "id": "bb2bfb0e",
       "execution_count": null,
       "outputs": []
     },
@@ -378,7 +378,7 @@
       "source": [
         "**Comparing with housing prices in California**"
       ],
-      "id": "b8bbb040"
+      "id": "81e11408"
     },
     {
       "cell_type": "code",
@@ -405,7 +405,7 @@
         "    )\n",
         ")"
       ],
-      "id": "afa05e9f",
+      "id": "37b0c6da",
       "execution_count": null,
       "outputs": []
     },
@@ -417,7 +417,7 @@
         "The trend line shows a slight positive relationship between average home prices and avocado prices --> higher-priced housing markets also tend to have higher avocado prices.\n",
         "This suggests that the avocado toast effect is more a reflection of general cost-of-living differences rather than causation."
       ],
-      "id": "64ee174d"
+      "id": "b8612104"
     }
   ],
   "metadata": {

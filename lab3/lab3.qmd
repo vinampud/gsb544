@@ -86,7 +86,17 @@ def _blank(x):
 
 def make_phrase(num, num_word, item, verb, adjective, location):
     """
-    <documentation here>
+    Returns plural of a noun
+    
+    Parameters
+    ----------
+    gift: str
+        A noun
+        
+    Return
+    ------
+    str
+        Plural version
     """
     
     ## Step 1: Replace NAs with blank strings
@@ -142,7 +152,17 @@ xmas.head()
 ```{python}
 def sing_day(dataset, num, phrase_col):
     """
-    <documentation>
+    Returns plural of a noun
+    
+    Parameters
+    ----------
+    gift: str
+        A noun
+        
+    Return
+    ------
+    str
+        Plural version
     """
     
     # Step 1: Setup the intro line

@@ -1,0 +1,366 @@
+**Part One**
+```{python}
+%echo
+import numpy as np
+import pandas as pd
+from plotnine import *
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+```
+```{python}
+data = pd.read_csv("https://www.dropbox.com/s/bocjjyo1ehr5auz/insurance_costs_1.csv?dl=1")
+data.head()
+```
+```{python}
+data.describe()
+```
+
+```{python}
+data.isna().sum()
+```
+
+```{python}
+(
+    ggplot(data, aes(x="charges", fill="sex"))
+    + geom_density(alpha=0.5)
+    + labs(title="Distribution of Charges by Sex",
+           x="Charges", y="Density")
+)
+```
+
+The distributions overlap heavily, with male and female charges showing similar shapes. This suggests that sex alone does not have a strong effect on insurance cost.
+
+```{python}
+(ggplot(data, aes(x="smoker", y = "charges")) 
++ geom_boxplot()
++ facet_wrap("region")
++ labs(title = "Distribution of Charges across US regions, smoker vs non-smoker"))
+```
+
+Smokers consistently have much higher charges than non-smokers across all U.S. regions, indicating smoking is a major predictor of cost. Regional differences are minor compared to the smoker effect.
+
+**Part Two**
+
+simple linear model with age
+```{python}
+lr_age = LinearRegression()
+x_train, x_test, y_train, y_test = train_test_split(data[["age"]], data["charges"], test_size = 0.25)
+lr_age_fit = lr_age.fit(x_train, y_train)
+y_pred_lr_age = lr_age_fit.predict(x_test)
+```
+```{python}
+print("coefficients of P2 Q1 model: ", lr_age_fit.coef_)
+print("RMSE of P2 Q1 model: ",np.sqrt(mean_squared_error(y_test, y_pred_lr_age)))
+print("R-squared of P2 Q1 model: ", lr_age_fit.score(x_test, y_test))
+```
+
+age + sex
+```{python}
+data_d = pd.get_dummies(data, columns=["sex", "smoker", "region"], drop_first=True)
+data_d.head()
+```
+
+```{python}
+lr_agesex = LinearRegression()
+x_train, x_test, y_train, y_test = train_test_split(data_d[["age", "sex_male"]], data_d["charges"], test_size = 0.25)
+lr_agesex_fit = lr_agesex.fit(x_train, y_train)
+y_pred_lr_agesex = lr_agesex_fit.predict(x_test)
+```
+
+```{python}
+print("coefficients of P2 Q2 model: ", lr_agesex_fit.coef_)
+print("RMSE of P2 Q2 model: ", np.sqrt(mean_squared_error(y_test, y_pred_lr_agesex)))
+print("R-squared of P2 Q2 model: ", lr_agesex_fit.score(x_test, y_test))
+```
+
+age + smoker
+```{python}
+lr_agesmoker = LinearRegression()
+x_train, x_test, y_train, y_test = train_test_split(data_d[["age", "smoker_yes"]], data_d["charges"], test_size = 0.25)
+lr_agesmoker_fit = lr_agesmoker.fit(x_train, y_train)
+y_pred_lr_agesmoker = lr_agesmoker_fit.predict(x_test)
+```
+```{python}
+print("coefficients of P2 Q3 model: ", lr_agesmoker_fit.coef_)
+print("RMSE of P2 Q3 model: ", np.sqrt(mean_squared_error(y_test, y_pred_lr_agesmoker)))
+print("R-squared of P2 Q3 model: ", lr_agesmoker_fit.score(x_test, y_test))
+```
+
+The model for Q3 (age + smoker) fits the data far better. Adding smoker_yes dramatically lowers the RMSE and increases R-squared from 0.1 to 0.8. Smoking status explains most of the variability in charges, whereas sex contributes little.
+
+**Part Three**
+
+age + bmi
+```{python}
+lr_agebmi = LinearRegression()
+x_train, x_test, y_train, y_test = train_test_split(data_d[["age", "bmi"]], data_d["charges"], test_size = 0.25)
+lr_agebmi_fit = lr_agebmi.fit(x_train, y_train)
+y_pred_lr_agebmi = lr_agebmi_fit.predict(x_test)
+```
+```{python}
+print("coefficients of P3 Q1 model: ", lr_agebmi_fit.coef_)
+print("RMSE of P3 Q1 model: ", np.sqrt(mean_squared_error(y_test, y_pred_lr_agebmi)))
+print("R-squared of P3 Q1 model: ", lr_agebmi_fit.score(x_test, y_test))
+```
+
+Compared to the simple age model (Part 2 Q1), adding BMI barely improves fit. MSE is still large and R-squared remains low.
+
+quadratic age degree 2
+```{python}
+poly2 = PolynomialFeatures(degree=2, include_bias=False)
+x_age2 = poly2.fit_transform(data_d[["age"]]) 
+x_train, x_test, y_train, y_test = train_test_split(x_age2, data_d["charges"], test_size = 0.25)
+
+lr_age2 = LinearRegression()
+lr_age2_fit = lr_age2.fit(x_train, y_train)
+y_pred_lr_age2 = lr_age2_fit.predict(x_test)
+```
+
+```{python}
+print("coefficients of P3 Q2 model: ", lr_age2_fit.coef_)
+print("RMSE of P3 Q2 model: ", np.sqrt(mean_squared_error(y_test, y_pred_lr_age2)))
+print("R-squared of P3 Q2 model: ", lr_age2_fit.score(x_test, y_test))
+```
+
+Worse than age-only on both RMSE and R-squared --> the quadratic didn’t help here.
+
+age degree 4
+```{python}
+poly4 = PolynomialFeatures(degree=4, include_bias=False)
+x_age4 = poly4.fit_transform(data_d[["age"]]) 
+x_train, x_test, y_train, y_test = train_test_split(x_age4, data_d["charges"], test_size = 0.25)
+
+lr_age4 = LinearRegression()
+lr_age4_fit = lr_age4.fit(x_train, y_train)
+y_pred_lr_age4 = lr_age4_fit.predict(x_test)
+```
+
+```{python}
+print("coefficients of P3 Q3 model: ", lr_age4_fit.coef_)
+print("RMSE of P3 Q3 model: ", np.sqrt(mean_squared_error(y_test, y_pred_lr_age4)))
+print("R-squared of P3 Q3 model: ", lr_age4_fit.score(x_test, y_test))
+```
+
+Again worse than age-only on both metrics. added variable didn’t translate into better generalization for this specific split.
+
+age degree 12
+```{python}
+poly12 = PolynomialFeatures(degree=12, include_bias=False)
+x_age12 = poly12.fit_transform(data_d[["age"]]) 
+x_train, x_test, y_train, y_test = train_test_split(x_age12, data_d["charges"], test_size = 0.25)
+
+lr_age12 = LinearRegression()
+lr_age12_fit = lr_age12.fit(x_train, y_train)
+y_pred_lr_age12 = lr_age12_fit.predict(x_test)
+```
+
+```{python}
+print("coefficients of P3 Q4 model: ", lr_age12_fit.coef_)
+print("RMSE of P3 Q4 model: ", np.sqrt(mean_squared_error(y_test, y_pred_lr_age12)))
+print("R-squared of P3 Q4 model: ", lr_age12_fit.score(x_test, y_test))
+```
+
+Slightly better than age-only on both RMSE and r-squared.
+
+```{python}
+age_grid = np.linspace(data_d["age"].min(), data_d["age"].max(), 200).reshape(-1, 1)
+
+x_grid12 = poly12.transform(age_grid)
+
+y_pred_grid12 = lr_age12_fit.predict(x_grid12)
+
+plot_df = pd.DataFrame({
+    "age": data_d["age"],
+    "charges": data_d["charges"]
+})
+curve_df = pd.DataFrame({
+    "age": age_grid.flatten(),
+    "charges_pred": y_pred_grid12
+})
+
+(
+    ggplot(plot_df, aes(x="age", y="charges"))
+    + geom_point(alpha=0.4, color="gray") 
+    + geom_line(curve_df, aes(x="age", y="charges_pred"), color="blue", size=1.2)
+    + labs(
+        title="Degree-12 Polynomial Fit for Insurance Charges",
+        x="Age",
+        y="Charges"
+    )
+)
+```
+
+according to the metrics, it seems like degree 12 gave us the best fit, with the lowest RMSE and highest r-squared. however, with the large degree, this could be due to overfitting. the models that include smoking seem to be more reliable in prediction. the next best thing is the degree 4 model.
+
+**Part Four**
+```{python}
+new_data = pd.read_csv("https://www.dropbox.com/s/sky86agc4s8c6qe/insurance_costs_2.csv?dl=1")
+new_data.head()
+```
+
+```{python}
+new_data_d = pd.get_dummies(new_data, columns=["sex", "smoker", "region"], drop_first=True)
+new_data_d.head()
+```
+
+```{python}
+def fit_and_predict(train_df, new_df, predictors):
+    x_train = train_df[predictors]
+    y_train = train_df["charges"]
+    x_new   = new_df[predictors]
+    y_new   = new_df["charges"]
+
+    model = LinearRegression().fit(x_train, y_train)
+    y_pred_new = model.predict(x_new)
+
+    mse = mean_squared_error(y_new, y_pred_new)
+    return mse, y_pred_new
+```
+
+```{python}
+m1_pred = ["age"]
+mse1, y1 = fit_and_predict(data_d, new_data_d, m1_pred)
+print("Model 1 MSE:", mse1)
+```
+```{python}
+m2_pred = ["age", "bmi"]
+mse2, y2 = fit_and_predict(data_d, new_data_d, m2_pred)
+print("Model 2 MSE:", mse2)
+```
+```{python}
+m3_pred = ["age", "bmi", "smoker_yes"]
+mse3, y3 = fit_and_predict(data_d, new_data_d, m3_pred)
+print("Model 3 MSE:", mse3)
+```
+```{python}
+for df in (data_d, new_data_d):
+    df["age_smoke"] = df["age"] * df["smoker_yes"]
+    df["bmi_smoke"] = df["bmi"] * df["smoker_yes"]
+
+m4_pred = ["age", "bmi", "smoker_yes", "age_smoke", "bmi_smoke"]
+mse4, y4 = fit_and_predict(data_d, new_data_d, m4_pred)
+print("Model 4 MSE:", mse4)
+```
+```{python}
+m5_pred = ["age", "bmi", "smoker_yes", "age_smoke", "bmi_smoke"]
+mse5, y5 = fit_and_predict(data_d, new_data_d, m5_pred)
+print("Model 5 MSE:", mse5)
+```
+
+```{python}
+mse_table = pd.DataFrame({
+    "Model": [1,2,3,4,5],
+    "Predictors": [
+        "age",
+        "age, bmi",
+        "age, bmi, smoker",
+        "age, bmi, smoker + (age*bmi):smoker",
+        "(age+bmi)*smoker"
+    ],
+    "MSE": [mse1, mse2, mse3, mse4, mse5]
+})
+mse_table
+```
+
+```{python}
+best = mse_table.loc[mse_table["MSE"].idxmin()]
+print("Best model:", best["Model"], "with MSE =", best["MSE"])
+```
+
+```{python}
+best_num = int(best["Model"])
+best_pred = [y1, y2, y3, y4, y5][best_num - 1]
+
+residuals = new_data_d["charges"] - best_pred
+
+res_df = pd.DataFrame({
+    "Predicted": best_pred,
+    "Residuals": residuals
+})
+
+(
+    ggplot(res_df, aes(x="Predicted", y="Residuals"))
+    + geom_point(alpha=0.6, color="steelblue")
+    + geom_hline(yintercept=0, linetype="dashed", color="red")
+    + labs(
+        title=f"Residuals for Best Model (Model {best_num})",
+        x="Predicted Charges",
+        y="Residuals (Actual − Predicted)"
+    )
+)
+
+```
+
+**Part Five**
+```{python}
+poly = PolynomialFeatures(degree=2, include_bias=False)
+age_bmi_poly = poly.fit_transform(data_d[["age", "bmi"]])
+colnames = ["age", "bmi", "age_sq", "age_bmi", "bmi_sq"]
+poly_df = pd.DataFrame(age_bmi_poly, columns=colnames, index=data_d.index)
+data_poly = pd.concat([data_d, poly_df[["age_sq", "age_bmi", "bmi_sq"]]], axis=1)
+```
+
+```{python}
+age_bmi_poly_new = poly.transform(new_data_d[["age", "bmi"]])
+poly_df_new = pd.DataFrame(age_bmi_poly_new, columns=colnames, index=new_data_d.index)
+new_data_poly = pd.concat([new_data_d, poly_df_new[["age_sq", "age_bmi", "bmi_sq"]]], axis=1)
+```
+
+```{python}
+for df in (data_poly, new_data_poly):
+    df["age_smoke"] = df["age"] * df["smoker_yes"]
+    df["bmi_smoke"] = df["bmi"] * df["smoker_yes"]
+
+models = {
+    "M1: age + bmi + smoker": ["age", "bmi", "smoker_yes"],
+    "M2: poly(age,bmi) + smoker": ["age", "bmi", "age_sq", "bmi_sq", "smoker_yes"],
+    "M3: poly(age,bmi) + smoker + age*bmi": ["age", "bmi", "age_sq", "bmi_sq", "age_bmi", "smoker_yes"],
+    "M4: poly(age,bmi)*smoker": ["age", "bmi", "age_sq", "bmi_sq", "age_bmi",
+                                 "smoker_yes", "age_smoke", "bmi_smoke"],
+    "M5: poly(age,bmi)*smoker + sex + region": ["age", "bmi", "age_sq", "bmi_sq", "age_bmi",
+                                                "smoker_yes", "age_smoke", "bmi_smoke",
+                                                "sex_male",
+                                                "region_northwest", "region_southeast", "region_southwest"]
+}
+```
+
+```{python}
+results = []
+predictions = {}
+
+for name, predictors in models.items():
+    mse, y_pred = fit_and_predict(data_poly, new_data_poly, predictors)
+    results.append({"Model": name, "MSE": mse})
+    predictions[name] = y_pred
+
+mse_table = pd.DataFrame(results).sort_values("MSE")
+print(mse_table)
+```
+
+```{python}
+best_model = mse_table.iloc[0]["Model"]
+print("\nBest model based on new-data MSE:", best_model)
+
+best_preds = predictions[best_model]
+residuals = new_data_poly["charges"] - best_preds
+```
+
+```{python}
+res_df = pd.DataFrame({
+    "Predicted": best_preds,
+    "Residuals": residuals
+})
+
+(
+    ggplot(res_df, aes(x="Predicted", y="Residuals"))
+    + geom_point(alpha=0.6, color="steelblue")
+    + geom_hline(yintercept=0, linetype="dashed", color="red")
+    + labs(
+        title=f"Residuals for Best Model ({best_model})",
+        x="Predicted Charges",
+        y="Residuals (Actual − Predicted)"
+    )
+)
+```

@@ -1,0 +1,363 @@
+LAB 6
+Priya Inampudi
+
+```{python}
+%pip install plotnine
+```
+```{python}
+%echo
+import pandas as pd
+import numpy as np
+from plotnine import *
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer, make_column_selector
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, PolynomialFeatures
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.model_selection import cross_val_score, GridSearchCV
+```
+
+```{python}
+players = pd.read_csv("https://www.dropbox.com/s/boshaqfgdjiaxh4/Hitters.csv?dl=1")
+players.head()
+```
+
+```{python}
+players.isnull().sum()
+players = players.dropna(subset=["Salary"])
+players.isnull().sum() # since prediciting salary, okay to drop
+```
+
+```{python}
+X = players.drop("Salary", axis = 1)
+y = players["Salary"]
+```
+
+```{python}
+ct = ColumnTransformer(
+    transformers=[
+        ("dummify", OneHotEncoder(sparse_output=False, handle_unknown="ignore"),
+         make_column_selector(dtype_include=object)),
+        ("standardize", StandardScaler(),
+         make_column_selector(dtype_include=np.number)),
+    ],
+    remainder="passthrough"
+)
+```
+
+```{python}
+# functions
+
+def get_feature_names(fitted_preprocessor, X):
+    cat_sel = fitted_preprocessor.transformers_[0][2]
+    num_sel = fitted_preprocessor.transformers_[1][2]
+
+    cat_names = fitted_preprocessor.transformers_[0][1].get_feature_names_out(
+        input_features=X.loc[:, cat_sel].columns
+    )
+    num_names = X.loc[:, num_sel].columns.astype(str)
+    return np.r_[cat_names, num_names]
+
+```
+
+
+**Part 1: Different Model Specs**
+
+```{python} 
+# PART A
+
+ols_pipe = Pipeline([
+    ("pre_processing", ct),
+    ("linear_regression", LinearRegression())
+])
+
+ols_rmse = -(cross_val_score(ols_pipe, X, y, cv = 5, scoring = "neg_root_mean_squared_error").mean())
+ols_mse = ols_rmse**2
+print("\nRMSE:", ols_rmse)
+print("MSE:", ols_mse, "\n")
+```
+
+```{python}
+
+ols_pipe.fit(X, y)
+
+feat_names = get_feature_names(ols_pipe.named_steps["pre_processing"], X)
+ols_coefs = pd.Series(ols_pipe.named_steps["linear_regression"].coef_[:len(feat_names)], index=feat_names)
+
+ols_top = ols_coefs.abs().sort_values(ascending=False).head(5)
+print(ols_coefs.loc[ols_top.index].sort_values(key=np.abs, ascending=False))
+```
+
+Recent and career offensive productivity (Hits, CRuns, CRBI) drive salary up, while sheer opportunities without production (AtBat) weigh slightly negative.
+OLS captures real patterns but can over-emphasize correlated stats, leading to instability.
+
+
+```{python}
+# PART B
+ridge_pipe = Pipeline([
+    ("pre_processing", ct),
+    ("ridge", Ridge(random_state=0))
+])
+
+param_grid = {"ridge__alpha": np.logspace(-3, 3, 13)} 
+
+ridge = GridSearchCV(ridge_pipe, param_grid, scoring = "neg_root_mean_squared_error", cv = 5)
+ridge_fitted = ridge.fit(X, y)
+
+print("\nBest alpha:", ridge_fitted.best_params_["ridge__alpha"])
+print("RMSE:", -ridge_fitted.best_score_)
+print("MSE: ", (-ridge_fitted.best_score_) ** 2, "\n")
+
+```
+
+```{python}
+
+ridge_best = ridge_fitted.best_estimator_
+
+ridge_best.fit(X, y)
+
+ridge_feat_names = get_feature_names(ridge_best.named_steps["pre_processing"], X)
+ridge_coefs = pd.Series(ridge_best.named_steps["ridge"].coef_[:len(ridge_feat_names)],
+                       index=ridge_feat_names)
+
+ridge_top = ridge_coefs.abs().sort_values(ascending=False).head(5)
+print(ridge_coefs.loc[ridge_top.index].sort_values(key=np.abs, ascending=False))
+```
+
+Ridge retains the same direction of effects but reduces their magnitudes, making the model less sensitive to multicollinearity among batting variables.
+Its lower RMSE (339 vs 342) shows a modest improvement in predictive stability.
+
+
+```{python}
+# PART C
+
+lasso_pipe = Pipeline([
+    ("pre_processing", ct),
+    ("lasso", Lasso(max_iter=10000, random_state=0))
+])
+
+param_grid = {"lasso__alpha": np.logspace(-3, 1, 9)} 
+lasso = GridSearchCV(lasso_pipe, param_grid, scoring = "neg_root_mean_squared_error", cv = 5)
+lasso_fitted = lasso.fit(X, y)
+
+print("\nBest alpha:", lasso_fitted.best_params_["lasso__alpha"])
+print("RMSE:", -lasso_fitted.best_score_)
+print("MSE: ", (-lasso_fitted.best_score_)**2, "\n")
+
+lasso_best = lasso_fitted.best_estimator_
+lasso_best.fit(X, y)
+
+lasso_feat_names = get_feature_names(lasso_best.named_steps["pre_processing"], X)
+
+lasso_coef = pd.Series(lasso_best.named_steps["lasso"].coef_[:len(lasso_feat_names)],
+                       index=lasso_feat_names)
+print(lasso_coef[lasso_coef != 0].sort_values(key=np.abs, ascending=False).head(5))
+```
+
+LASSO shrinks small, redundant coefficients to 0, but not shown here.
+highlights a compact set of  approx 5 main predictors, the same core offensive stats as Ridge/OLS, giving nearly identical RMSE but with simpler interpretation.
+
+```{python}
+# PART D
+
+enet_pipe = Pipeline([
+    ("pre_processing", ct),
+    ("elastic_net", ElasticNet(max_iter=10000, random_state=0))
+])
+
+param_grid = {
+    "elastic_net__alpha":    np.logspace(-3, 1, 9),
+    "elastic_net__l1_ratio": np.linspace(0.1, 0.9, 9)
+}
+
+enet = GridSearchCV(enet_pipe, param_grid, scoring = "neg_root_mean_squared_error", cv = 5)
+enet_fitted = enet.fit(X, y)
+
+print("\nBest params:", enet_fitted.best_params_)
+print("RMSE:", -enet_fitted.best_score_)
+print("MSE:", (-enet_fitted.best_score_)**2, "\n")
+
+enet_best = enet_fitted.best_estimator_
+enet_best.fit(X, y)
+
+enet_feat_names = get_feature_names(enet_best.named_steps["pre_processing"], X)
+enet_coefs = pd.Series(enet_best.named_steps["elastic_net"].coef_[:len(enet_feat_names)],
+                      index=enet_feat_names)
+
+enet_top = enet_coefs.abs().sort_values(ascending=False).head(5)
+print(enet_coefs.loc[enet_top.index].sort_values(key=np.abs, ascending=False))
+
+```
+
+The same main predictors remain, but coefficients are even smaller, more regularized.
+It achieved the best RMSE (approx. 339.0), but not exactly the biggest improvement over Ridge/LASSO but most balanced.
+
+
+**PART 2: Variable Selection**
+
+```{python}
+# based on results above
+best_num_1 = ["Hits"]
+best_num_5 = ["Hits", "AtBat", "CRuns", "CRBI", "CWalks"]
+best_cat_1 = ["Division"]
+```
+
+```{python}
+#functions to return each model
+def evaluate_model(pipe, X, y):
+    scores = cross_val_score(pipe, X, y, cv = 5, scoring = "neg_root_mean_squared_error")
+    rmse = -scores.mean()
+    mse = rmse**2
+    return rmse, mse
+
+def ridge_tuned(pre):
+    pipe = Pipeline([
+        ("pre_processing", pre),
+        ("ridge", Ridge(random_state=0))
+    ])
+    grid = {"ridge__alpha": np.logspace(-3, 3, 13)}
+    search = GridSearchCV(pipe, grid, scoring = "neg_root_mean_squared_error", cv = 5)
+    search.fit(X, y)
+    best = search.best_estimator_
+    rmse = -search.best_score_
+    mse = rmse**2
+    return best, rmse, mse
+
+def lasso_tuned(pre):
+    pipe = Pipeline([
+        ("pre_processing", pre),
+        ("lasso", Lasso(max_iter=10000, random_state=0))
+    ])
+    grid = {"lasso__alpha": np.logspace(-3, 1, 9)}
+    search = GridSearchCV(pipe, grid, scoring = "neg_root_mean_squared_error", cv = 5)
+    search.fit(X, y)
+    best = search.best_estimator_
+    rmse = -search.best_score_
+    mse = rmse**2
+    return best, rmse, mse
+
+def enet_tuned(pre):
+    pipe = Pipeline([
+        ("pre_processing", pre),
+        ("elastic_net", ElasticNet(max_iter=10000, random_state=0))
+    ])
+    grid = {
+        "elastic_net__alpha": np.logspace(-3, 1, 9),
+        "elastic_net__l1_ratio": np.linspace(0.1, 0.9, 9)
+    }
+    search = GridSearchCV(pipe, grid, scoring = "neg_root_mean_squared_error", cv = 5)
+    search.fit(X, y)
+    best = search.best_estimator_
+    rmse = -search.best_score_
+    mse = rmse**2
+    return best, rmse, mse
+
+```
+
+```{python}
+# 1 best numerical
+ct_1_num = ColumnTransformer([
+        ("dummify", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), []),
+        ("standardize", StandardScaler(), best_num_1)
+    ])
+
+ols_1 = Pipeline([("pre_processing", ct_1_num), ("linear_regression", LinearRegression())])
+ols_rmse_1, ols_mse_1 = evaluate_model(ols_1, X, y)
+
+ridge_best_1, ridge_rmse_1, ridge_mse_1 = ridge_tuned(ct_1_num)
+lasso_best_1, lasso_rmse_1, lasso_mse_1 = lasso_tuned(ct_1_num)
+enet_best_1, enet_rmse_1, enet_mse_1 = enet_tuned(ct_1_num)
+
+```
+
+```{python}
+# best 5 numericals
+ct_5_num = ColumnTransformer([
+        ("dummify", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), []),
+        ("standardize", StandardScaler(), best_num_5)
+    ])
+
+ols_5 = Pipeline([("pre_processing", ct_5_num), ("linear_regression", LinearRegression())])
+ols_rmse_5, ols_mse_5 = evaluate_model(ols_5, X, y)
+
+ridge_best_5, ridge_rmse_5, ridge_mse_5 = ridge_tuned(ct_5_num)
+lasso_best_5, lasso_rmse_5, lasso_mse_5 = lasso_tuned(ct_5_num)
+enet_best_5, enet_rmse_5, enet_mse_5 = enet_tuned(ct_5_num)
+
+```
+
+```{python}
+# best 5 numericals + interaction + best categorical
+
+ct_inter = ColumnTransformer([
+        ("dummify", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), best_cat_1),
+        ("standardize_poly", Pipeline([
+            ("scale", StandardScaler()),
+            ("poly", PolynomialFeatures(degree=2, interaction_only=True, include_bias=False))
+        ]), best_num_5)
+    ])
+
+ols_int = Pipeline([("pre_processing", ct_inter), ("linear_regression", LinearRegression())])
+ols_rmse_inter, ols_mse_inter = evaluate_model(ols_int, X, y)
+
+ridge_best_inter, ridge_rmse_inter, ridge_mse_inter = ridge_tuned(ct_inter)
+lasso_best_inter, lasso_rmse_inter, lasso_mse_inter = lasso_tuned(ct_inter)
+enet_best_inter, enet_rmse_inter, enet_mse_inter = enet_tuned(ct_inter)
+```
+
+```{python}
+results = pd.DataFrame({
+    "Feature_Set": ["1 numeric", "5 numeric", "5 numeric + interactions + categorical"],
+    "OLS_MSE": [ols_mse_1, ols_mse_5, ols_mse_inter],
+    "Ridge_MSE": [ridge_mse_1, ridge_mse_5, ridge_mse_inter],
+    "LASSO_MSE": [lasso_mse_1, lasso_mse_5, lasso_mse_inter],
+    "ElasticNet_MSE": [enet_mse_1, enet_mse_5, enet_mse_inter]
+})
+
+results
+```
+
+After re-tuning alpha and lambda for each feature set, the Elastic Net model using the five best numeric variables plus their interactions with Division achieved the lowest cross-validated MSE of approx. 100560. Also, Ridge regression on the same features performed almost identically.
+This indicates that incorporating a modest number of interaction terms together with balanced regularization yields the best generalization performance for predicting players' salaries.
+
+
+**PART 3: Discussion**
+
+A. Ridge:
+The Ridge coefficients were smaller in magnitude than the ordinary least-squares coefficients across all feature sets. This shrinkage makes sense because Ridge regression penalizes large coefficient values to reduce model variance and handle multicollinearity. While OLS sometimes produced very large positive and negative coefficients, especially when predictors were correlated, Ridge pulled them toward zero without eliminating them entirely. As a result, Ridge produced nearly identical but slightly lower MSE values than OLS, indicating better generalization through reduced variance.
+
+B: Lasso:
+The LASSO model in Part I and the three LASSO models in Part II did not use the same optimal lambda values. This makes sense since as the feature set changes, so does the overall scale and correlation structure of X, so the strength of the penalty required to balance bias and variance also changes. Also, the MSEs differed across feature sets. LASSO achieved much lower MSE when more relevant variables were added, and the smallest MSE when interactions were included.
+This also makes sense since adding predictive information gives LASSO more to work with, while its regularization still keeps uninformative coefficients at zero.
+
+C. Elastic Net:
+Across all feature sets, Elastic Net achieved the lowest (best) MSE, followed closely by Ridge.
+This outcome makes sense because Elastic Net combines the L2 penalty of Ridge (which stabilizes correlated predictors) with the L1 penalty of LASSO (which performs variable selection).
+In datasets like this baseball salary data—where many predictors are moderately correlated—Elastic Net gains the strengths of both methods: it can drop truly irrelevant features while still keeping correlated groups of variables together.
+Consequently, Elastic Net consistently “wins” by offering the best bias–variance trade-off and the most stable predictive performance.
+
+
+**PART 4: Final Model**
+```{python}
+enet_best_inter.fit(X, y)
+
+y_pred_final = enet_best_inter.predict(X)
+
+plot_df = pd.DataFrame({"Actual": y, "Predicted": y_pred_final})
+
+(
+    ggplot(plot_df, aes(x="Actual", y="Predicted"))
+    + geom_point()
+    + geom_abline()
+    + labs(
+        title="Final Elastic Net Model on Predicted vs Actual Salaries",
+        x="Actual Salary ($ thousands)",
+        y="Predicted Salary ($ thousands)"
+    )
+)
+```
+
+The final model selected was an Elastic Net regression using the five most influential numeric predictors: Hits, AtBat, CRuns, CRBI, CWalks, as well as their interactions with the categorical variable Division.
+After tuning alpha and the lambda ratio in Part 2 and refitting this model on the full dataset, it achieved the lowest cross-validated MSE of approx 100560.
+The predicted-vs-actual salary plot shows a clear positive relationship and clustering along the line, indicating that the model captures the general salary structure well.
+Some underprediction for the very highest salaries reflects the regularization penalty’s effect of shrinking extreme coefficients toward zero.
+But overall, the Elastic Net model balances bias and variance effectively, producing accurate, stable, and interpretable predictions of baseball player salaries.

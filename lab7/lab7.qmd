@@ -1,0 +1,309 @@
+LAB 7
+Priya Inampudi
+
+```{python}
+%echo
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold, cross_val_score
+from sklearn.preprocessing import StandardScaler, label_binarize
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report, roc_auc_score, roc_curve, make_scorer, precision_score, recall_score, f1_score, cohen_kappa_score
+from sklearn.pipeline import Pipeline
+import matplotlib.pyplot as plt
+```
+
+**PART 1**
+```{python}
+
+ha = pd.read_csv("https://www.dropbox.com/s/aohbr6yb9ifmc8w/heart_attack.csv?dl=1")
+
+y = ha['output'].astype(int)
+X = ha.drop(columns=['output'])
+```
+```{python}
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y
+)
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+```
+
+Q1: KNN
+```{python}
+
+knn_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("knn", KNeighborsClassifier())
+])
+
+knn_param_grid = {
+    "knn__n_neighbors": list(range(1, 41)),
+    "knn__weights": ["uniform", "distance"]
+}
+
+knn_search = GridSearchCV(knn_pipe, knn_param_grid, scoring="roc_auc", cv=cv, n_jobs=-1)
+
+knn_fitted = knn_search.fit(X_train, y_train)
+
+knn_best = knn_fitted.best_estimator_
+knn_cv_auc = knn_fitted.best_score_
+print("KNN best model:", knn_fitted.best_params_)
+print("KNN CV AUC:", knn_cv_auc)
+
+y_pred_knn = knn_best.predict(X_test)
+y_proba_knn = knn_best.predict_proba(X_test)[:,1]
+```
+
+KNN confusion matrix
+```{python}
+pd.DataFrame(confusion_matrix(y_test, y_pred_knn), index=["Actual 0","Actual 1"], columns=["Pred 0","Pred 1"])
+```
+
+Q2: logistic regression
+```{python}
+
+logreg_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("logreg", LogisticRegression(max_iter=1000, solver="liblinear"))
+])
+
+logreg_param_grid = {
+    "logreg__C": np.logspace(-3, 3, 13),
+    "logreg__penalty": ["l2"] 
+}
+
+logreg_search = GridSearchCV(logreg_pipe, logreg_param_grid, scoring="roc_auc", cv=cv, n_jobs=-1)
+
+logreg_search.fit(X_train, y_train)
+
+logreg_best = logreg_search.best_estimator_
+logreg_cv_auc = logreg_search.best_score_
+print("LogReg best model:", logreg_search.best_params_)
+print("LogReg CV AUC:", logreg_cv_auc)
+
+y_pred_logreg = logreg_best.predict(X_test)
+
+y_proba_logreg = logreg_best.predict_proba(X_test)[:,1]
+```
+
+Logistic regression confusion matric
+```{python}
+pd.DataFrame(confusion_matrix(y_test, y_pred_logreg), index=["Actual 0","Actual 1"], columns=["Pred 0","Pred 1"])
+```
+
+Q3: Decision Tree
+```{python}
+
+dt = DecisionTreeClassifier(random_state=42)
+
+dt_param_grid = {
+    "max_depth": list(range(2, 16)),
+    "min_samples_leaf": [1, 2, 5, 10]
+}
+
+dt_search = GridSearchCV(dt, dt_param_grid, scoring="roc_auc", cv=cv, n_jobs=-1)
+
+dt_search.fit(X_train, y_train)
+
+dt_best =dt_search.best_estimator_
+dt_cv_auc = dt_search.best_score_
+print("Decision tree best params:", dt_search.best_params_)
+print("Decision tree CV AUC:", dt_cv_auc)
+
+y_pred_dt = dt_best.predict(X_test)
+y_proba_dt = dt_best.predict_proba(X_test)[:,1]
+```
+
+decision tree confusion matrix
+```{python}
+pd.DataFrame(confusion_matrix(y_test, y_pred_dt), index=["Actual 0","Actual 1"], columns=["Pred 0","Pred 1"])
+```
+
+Q4: Interpretation
+
+
+Top logistic coefficients:
+```{python}
+
+logreg_model = logreg_best.named_steps["logreg"]
+coef = pd.Series(logreg_model.coef_[0], index=X.columns).sort_values(key=np.abs, ascending=False)
+coef.head(8)
+```
+
+```{python}
+```
+
+Top decision tree important features:
+
+```{python}
+imp = pd.Series(dt_best.feature_importances_, index=X.columns).sort_values(ascending=False)
+imp.head(8)
+
+```
+
+Logistic model coefficient interpretation
+
+thalach: 1.07 --> Positive means higher maximum heart rate is associated with lower risk.	
+
+sex: −0.98 --> Negative means being male or female substantially shifts risk
+
+cp: +0.78 --> Higher chest-pain type increases odds of being at risk.
+
+Smaller coefficients for trtbps, age, restecg, chol suggest minor effects after controlling for others.
+
+Most important predictors: Across all models, chest-pain type (cp) and maximum heart rate achieved (thalach) consistently emerged as the strongest predictors of heart-attack risk. Logistic regression additionally emphasized sex as an important variable.
+
+Q5: ROC curves plot
+```{python}
+fpr_knn, tpr_knn, thresholds_knn = roc_curve(y_test, y_proba_knn)
+fpr_logreg, tpr_logreg, thresholds_logreg = roc_curve(y_test, y_proba_logreg)
+fpr_dt, tpr_dt, threshold_dt = roc_curve(y_test, y_proba_dt)
+
+auc_knn  = roc_auc_score(y_test, y_proba_knn)
+auc_logreg  = roc_auc_score(y_test, y_proba_logreg)
+auc_dt = roc_auc_score(y_test, y_proba_dt)
+
+plt.figure(figsize=(6,5))
+
+plt.plot(fpr_knn,  tpr_knn,  label=f"KNN (AUC={auc_knn:.4f})")
+
+plt.plot(fpr_logreg,  tpr_logreg,  label=f"LogReg (AUC={auc_logreg:.4f})")
+
+plt.plot(fpr_dt, tpr_dt, label=f"Tree (AUC={auc_dt:.4f})")
+
+plt.plot([0,1],[0,1],'k--', linewidth=1)
+
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curves for Heart Attack Risk across models")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+```
+
+**PART 2**
+```{python}
+
+tpr_scorer = make_scorer(recall_score)
+
+ppv_scorer = make_scorer(precision_score)
+
+tnr_scorer = make_scorer(recall_score, pos_label=0)
+
+models = {
+    "KNN": knn_best,
+    "Logistic Regression": logreg_best,
+    "Decision Tree": dt_best
+}
+
+metrics = []
+for name, model in models.items():
+    tpr = cross_val_score(model, X, y, cv=cv, scoring=tpr_scorer).mean()
+    ppv = cross_val_score(model, X, y, cv=cv, scoring=ppv_scorer).mean()
+    tnr = cross_val_score(model, X, y, cv=cv, scoring=tnr_scorer).mean()
+    metrics.append({
+        "Model": name,
+        "True Positive Rate / Recall": tpr,
+        "Precision": ppv,
+        "True Negative Rate / Specificity": tnr
+    })
+
+metrics_df = pd.DataFrame(metrics)
+metrics_df.round(4)
+
+```
+
+
+**PART 3**
+
+Q1: I would aim to maximize recall. For this scenario I'd pick my logistic regression model. With recall being around 0.82, it detects most at-risk patients. Missing even one could be catastrophic, so we want to accept more false positives just for safety.
+
+Q2: I would aim to maximize precision and specificity, since I'd want to flag only the true high-risk cases. I would pick my decision tree model. A precision of 0.77 and specificity of 0.74 would mean fewer false alarms and more efficient bed use.
+
+Q3 (Studying root causes)
+
+Goal: I would use logistic regression so that for each cause I can interpret and understand the coefficients. They'll show how each factor changes heart-attack odds (e.g. cp, thalach, sex). 
+
+Q4 (Training new doctors)
+
+Goal: I would use logistic regression to construct a stable, balanced reference model with good overall accuracy and AUC. For example with a AUC of 0.80 and balanced precision/recall, the model can be a consistent reference point to compare human diagnoses against and evaluating new doctors’ diagnostic skills.
+
+**PART 4**
+```{python}
+ha_val = pd.read_csv("https://www.dropbox.com/s/jkwqdiyx6o6oad0/heart_attack_validation.csv?dl=1")
+ha_val.head()
+```
+```{python}
+X_val = ha_val.drop(columns=["output"])
+y_val = ha_val["output"].astype(int)
+```
+```{python}
+models = {
+    "KNN": knn_best,
+    "Logistic Regression": logreg_best,
+    "Decision Tree": dt_best
+}
+
+results_val = []
+for name, model in models.items():
+    y_pred = model.predict(X_val)
+    y_proba = model.predict_proba(X_val)[:,1]
+
+    cm = confusion_matrix(y_val, y_pred)
+    auc = roc_auc_score(y_val, y_proba)
+    prec = precision_score(y_val, y_pred)
+    rec = recall_score(y_val, y_pred)
+
+    print("\n", name)
+    print("Confusion Matrix:\n", pd.DataFrame(cm, index=["Actual 0","Actual 1"], columns=["Pred 0","Pred 1"]))
+    print(f"AUC = {auc:.4f}  Precision = {prec:.4f}  Recall = {rec:.4f}")
+
+    results_val.append({
+        "Model": name,
+        "AUC": auc,
+        "Precision": prec,
+        "Recall": rec
+    })
+
+```
+
+Validation Stats
+```{python}
+val_df = pd.DataFrame(results_val)
+val_df.round(4)
+```
+
+The validation set confirmed the stability of the three tuned models.
+
+- KNN achieved the highest validation AUC of 0.93, but performed very similarly to the logistic regression in terms of precision: 0.88 and recall: 0.79.
+
+- The decision tree model remained more conservative, yielding the highest precision of 0.93 but a lower recall of 0.74.
+
+These results mirror the cross-validated estimates from Part 2, suggesting that our cross-validation provided an accurate measure of real-world performance. Overall, the logistic regression model remains the preferred model, since its validation metrics align closely with CV results from parts 1 and 2. It gives us interpretability and balances sensitivity and specificity better than the other models.
+
+**PART 5**
+```{python}
+kappa_results = []
+for name, model in models.items():
+    y_pred = model.predict(X_val)
+    kappa = cohen_kappa_score(y_val, y_pred)
+    kappa_results.append({"Model": name, "Cohen Kappa": kappa})
+
+kappa_df = pd.DataFrame(kappa_results)
+kappa_df.round(4)
+
+```
+
+
+Cohen’s Kappa was calculated to assess the agreement between predicted and actual classifications while adjusting for random chance.
+
+All three models demonstrated enough agreement. KNN and logistic regression both achieved a K value of 0.585, while the Decision Tree achieved 0.60.
+
+These results confirm our earlier resultss. Each model provides meaningful predictive ability, but the decision tree’s slightly higher Kappa suggests greater consistency in its predictions.
+However, this difference is small, and overall, the logistic regression model still remains preferred for its balance of performance, interpretability, and generalization.
+So the Kappa results do not change our previous conclusions but confirm that all three models are performing well above chance.

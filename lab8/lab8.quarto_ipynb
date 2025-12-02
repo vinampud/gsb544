@@ -1,0 +1,673 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "LAB 8\n",
+        "Priya Inampudi"
+      ],
+      "id": "0cae93cc"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, StratifiedKFold\n",
+        "from sklearn.metrics import confusion_matrix\n",
+        "from sklearn.pipeline import Pipeline\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis\n",
+        "from sklearn.svm import SVC\n",
+        "from sklearn.tree import DecisionTreeClassifier, plot_tree\n",
+        "from sklearn.neighbors import KNeighborsClassifier\n",
+        "from sklearn.linear_model import LogisticRegression\n",
+        "import matplotlib.pyplot as plt"
+      ],
+      "id": "dfc99775",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "**PART 1**\n",
+        "\n",
+        "Q1: LDA"
+      ],
+      "id": "5e245bd6"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df = pd.read_csv(\"https://www.dropbox.com/s/s2a1uoiegitupjc/cannabis_full.csv?dl=1\")\n",
+        "df.head()"
+      ],
+      "id": "ba045a96",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "pd.value_counts(df['Type'])"
+      ],
+      "id": "5e33984c",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df_bin = df[(df[\"Type\"] == \"sativa\") | (df[\"Type\"] == \"indica\")].copy()\n",
+        "\n",
+        "df_bin[\"Type_bin\"] = (df_bin[\"Type\"] == \"sativa\").astype(int)\n",
+        "\n",
+        "df_bin.drop(columns = ['Strain', 'Effects', 'Flavor'], inplace=True)"
+      ],
+      "id": "5e8d47bd",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df_bin.dropna(inplace=True)\n",
+        "df_bin.isnull().sum()"
+      ],
+      "id": "97a88142",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "X = df_bin.drop(columns=[\"Type\", \"Type_bin\"])\n",
+        "y = df_bin[\"Type_bin\"]\n",
+        "\n",
+        "X_train, X_test, y_train, y_test = train_test_split(\n",
+        "    X, y, test_size=0.25, random_state=42, stratify=y\n",
+        ")"
+      ],
+      "id": "9df88600",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "lda_pipe = Pipeline([\n",
+        "    (\"standardize\", StandardScaler()),\n",
+        "    (\"lda\", LinearDiscriminantAnalysis())\n",
+        "])\n",
+        "\n",
+        "lda_cv = cross_val_score(lda_pipe, X_train, y_train, cv=5, scoring=\"accuracy\").mean()\n",
+        "print(\"LDA CV Accuracy:\", lda_cv)\n",
+        "\n",
+        "lda_pipe.fit(X_train, y_train)\n",
+        "print(\"LDA Confusion Matrix:\\n\", confusion_matrix(y_test, lda_pipe.predict(X_test)))"
+      ],
+      "id": "a477550e",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Q2: QDA"
+      ],
+      "id": "423a4787"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "qda_pipe = Pipeline([\n",
+        "    (\"standardize\", StandardScaler()),\n",
+        "    (\"qda\", QuadraticDiscriminantAnalysis())\n",
+        "])\n",
+        "\n",
+        "qda_cv = cross_val_score(qda_pipe, X_train, y_train, cv=5, scoring=\"accuracy\").mean()\n",
+        "print(\"QDA CV Accuracy:\", qda_cv)\n",
+        "\n",
+        "qda_pipe.fit(X_train, y_train)\n",
+        "print(\"QDA Confusion Matrix:\\n\", confusion_matrix(y_test, qda_pipe.predict(X_test)))"
+      ],
+      "id": "fca51895",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Q3: SVC"
+      ],
+      "id": "2eb1ca76"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "svc_pipe = Pipeline([\n",
+        "    (\"standardize\", StandardScaler()),\n",
+        "    (\"svc\", SVC(kernel=\"linear\"))\n",
+        "])\n",
+        "\n",
+        "svc_grid = {\"svc__C\": [0.01, 0.1, 1, 10, 100]}\n",
+        "\n",
+        "svc_search = GridSearchCV(\n",
+        "    svc_pipe, svc_grid, cv=5, scoring=\"accuracy\"\n",
+        ")\n",
+        "\n",
+        "svc_search.fit(X_train, y_train)\n",
+        "\n",
+        "print(\"Best SVC param:\", svc_search.best_params_)\n",
+        "print(\"SVC CV Accuracy:\", svc_search.best_score_)\n",
+        "\n",
+        "svc_best = svc_search.best_estimator_\n",
+        "print(\"SVC Confusion Matrix:\\n\", confusion_matrix(y_test, svc_best.predict(X_test)))"
+      ],
+      "id": "8466237f",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Q4: SVM"
+      ],
+      "id": "0fdb9f82"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "svm_poly_pipe = Pipeline([\n",
+        "    (\"standardize\", StandardScaler()),\n",
+        "    (\"svm\", SVC(kernel=\"poly\", degree=2))\n",
+        "])\n",
+        "\n",
+        "svm_poly_grid = {\n",
+        "    \"svm__degree\": [2, 3, 4],\n",
+        "    \"svm__C\": [0.1, 1, 10]\n",
+        "}\n",
+        "\n",
+        "svm_poly_search = GridSearchCV(\n",
+        "    svm_poly_pipe, svm_poly_grid, cv=5, scoring=\"accuracy\"\n",
+        ")\n",
+        "\n",
+        "svm_poly_search.fit(X_train, y_train)\n",
+        "\n",
+        "print(\"Best SVM params:\", svm_poly_search.best_params_)\n",
+        "print(\"SVM CV Accuracy:\", svm_poly_search.best_score_)\n",
+        "\n",
+        "svm_poly_best = svm_poly_search.best_estimator_\n",
+        "print(\"SVM Confusion Matrix:\\n\", confusion_matrix(y_test, svm_poly_best.predict(X_test)))"
+      ],
+      "id": "925de1ae",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "**PART 2**\n",
+        "\n",
+        "Q1: decision tree"
+      ],
+      "id": "0d0869b4"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df2 = pd.read_csv(\"https://www.dropbox.com/s/s2a1uoiegitupjc/cannabis_full.csv?dl=1\")\n",
+        "df2.head()\n",
+        "pd.value_counts(df2['Type'])"
+      ],
+      "id": "025347eb",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df2.drop(columns = ['Strain', 'Effects', 'Flavor'], inplace=True)\n",
+        "df2.dropna(inplace=True)\n",
+        "df2.isnull().sum()"
+      ],
+      "id": "97b7c6b4",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "X2 = df2.drop(columns=[\"Type\"])\n",
+        "y2 = df2[\"Type\"]\n",
+        "\n",
+        "X2_train, X2_test, y2_train, y2_test = train_test_split(\n",
+        "    X2, y2, test_size=0.25, random_state=42, stratify=y2\n",
+        ")"
+      ],
+      "id": "b2403247",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "dt = DecisionTreeClassifier(\n",
+        "    max_depth=4,\n",
+        "    min_samples_leaf=5,\n",
+        "    random_state=42\n",
+        ")\n",
+        "dt.fit(X2_train, y2_train)\n",
+        "print(dt.classes_)"
+      ],
+      "id": "dfb6ae35",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "dt_cv_acc = cross_val_score(dt, X2_train, y2_train, cv=5, scoring=\"accuracy\").mean()\n",
+        "print(\"Decision Tree CV Accuracy:\", dt_cv_acc)"
+      ],
+      "id": "3fd12419",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "print(\"Decision Tree Confusion Matrix:\\n\",\n",
+        "      pd.DataFrame(confusion_matrix(y2_test, dt.predict(X2_test)),\n",
+        "                   index=dt.classes_, columns=dt.classes_))"
+      ],
+      "id": "30886399",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "plt.figure(figsize=(20,8))\n",
+        "plot_tree(dt, feature_names=X2.columns, class_names=[str(c) for c in dt.classes_], filled=True)\n",
+        "plt.title(\"Part 2 decision tree for predicting cannabis type\")\n",
+        "plt.show()"
+      ],
+      "id": "c4946e67",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Q2: repeating analyses\n",
+        "\n",
+        "LDA"
+      ],
+      "id": "44f8e24a"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "lda2_pipe = Pipeline([\n",
+        "    (\"standardize\", StandardScaler()),\n",
+        "    (\"lda\", LinearDiscriminantAnalysis())\n",
+        "])\n",
+        "\n",
+        "lda2_cv = cross_val_score(lda2_pipe, X2_train, y2_train, cv=5, scoring=\"accuracy\").mean()\n",
+        "print(\"LDA CV Accuracy:\", lda2_cv)\n",
+        "\n",
+        "lda2_pipe.fit(X2_train, y2_train)\n",
+        "print(\"LDA Confusion Matrix:\\n\",\n",
+        "      pd.DataFrame(confusion_matrix(y2_test, lda2_pipe.predict(X2_test)),\n",
+        "                   index=lda2_pipe.named_steps[\"lda\"].classes_,\n",
+        "                   columns=lda2_pipe.named_steps[\"lda\"].classes_))"
+      ],
+      "id": "5c2bf38f",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "QDA"
+      ],
+      "id": "ebea6a71"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "qda2_pipe = Pipeline([\n",
+        "    (\"standardize\", StandardScaler()),\n",
+        "    (\"qda\", QuadraticDiscriminantAnalysis())\n",
+        "])\n",
+        "\n",
+        "qda2_cv = cross_val_score(qda2_pipe, X2_train, y2_train, cv=5, scoring=\"accuracy\").mean()\n",
+        "print(\"QDA CV Accuracy:\", qda2_cv)\n",
+        "\n",
+        "qda2_pipe.fit(X2_train, y2_train)\n",
+        "print(\"QDA Confusion Matrix:\\n\",\n",
+        "      pd.DataFrame(confusion_matrix(y2_test, qda2_pipe.predict(X2_test)),\n",
+        "                   index=qda2_pipe.named_steps[\"qda\"].classes_,\n",
+        "                   columns=qda2_pipe.named_steps[\"qda\"].classes_))"
+      ],
+      "id": "45e9fec7",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "KNN - multiclass"
+      ],
+      "id": "295e2da8"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "knn_pipe = Pipeline([\n",
+        "    (\"standardize\", StandardScaler()),\n",
+        "    (\"knn\", KNeighborsClassifier())\n",
+        "])\n",
+        "\n",
+        "knn_grid = {\n",
+        "    \"knn__n_neighbors\": list(range(1, 51)),\n",
+        "    \"knn__weights\": [\"uniform\", \"distance\"]\n",
+        "}\n",
+        "\n",
+        "knn_search = GridSearchCV(\n",
+        "    knn_pipe,\n",
+        "    knn_grid,\n",
+        "    scoring=\"accuracy\",\n",
+        "    cv=5,\n",
+        "    n_jobs=-1\n",
+        ")\n",
+        "\n",
+        "knn_search.fit(X2_train, y2_train)\n",
+        "\n",
+        "print(\"Best KNN Params:\", knn_search.best_params_)\n",
+        "print(\"KNN CV Accuracy:\", knn_search.best_score_)\n",
+        "\n",
+        "knn_best = knn_search.best_estimator_\n",
+        "print(\"KNN Confusion Matrix:\\n\",\n",
+        "      pd.DataFrame(confusion_matrix(y2_test, knn_best.predict(X2_test)),\n",
+        "                   index=knn_best.classes_,\n",
+        "                   columns=knn_best.classes_))"
+      ],
+      "id": "18e2011b",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Q3:\n",
+        "\n",
+        "All model metrics were worse in Part Two than in Part One. In the binary setting woth Indica vs. Sativa, accuracies were in the 0.80–0.84 range, but when Hybrid strains were included, the best multiclass models, Decision Tree and LDA, achieved only about 0.63 accuracy, and KNN dropped to around 0.59. QDA performed especially poorly with a CV accuracy ≈ 0.26, which is expected since QDA is unstable with high-dimensional dummy variables and class covariance matrices that are difficult to estimate.\n",
+        "\n",
+        "Across all models, Hybrid strains were the most frequently misclassified. This makes sense, as hybrids biologically and chemically share properties with both Indica and Sativa, so their effects and flavors overlap heavily with the other two categories. As a result, hybrids were often predicted as Indica or Sativa, and Sativa strains were frequently predicted as Hybrid. Indica was the most distinct and therefore the most accurately classified class.\n",
+        "\n",
+        "Overall, the confusion matrices clearly show that the introduction of Hybrid increased class overlap and ambiguity, leading to lower performance across all multiclass classifiers.\n",
+        "\n",
+        "**PART 3**\n",
+        "\n",
+        "Q1"
+      ],
+      "id": "5c73ac27"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df3 = pd.read_csv(\"https://www.dropbox.com/s/s2a1uoiegitupjc/cannabis_full.csv?dl=1\")\n",
+        "df3 = df.drop(columns=[\"Strain\", \"Effects\", \"Flavor\"], errors=\"ignore\")\n",
+        "\n",
+        "df3.dropna(inplace=True)\n",
+        "\n",
+        "X3 = df3.drop(columns=[\"Type\"])\n",
+        "y3 = df3[\"Type\"] "
+      ],
+      "id": "664fee72",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\n",
+        "\n",
+        "def run_ovr(model, target_class):\n",
+        "    y3_bin = (y3 == target_class).astype(int)\n",
+        "\n",
+        "    X3_train, X3_test, y3_train, y3_test = train_test_split(\n",
+        "        X3, y3_bin, test_size=0.25, random_state=42, stratify=y3_bin\n",
+        "    )\n",
+        "\n",
+        "    pipe = Pipeline([\n",
+        "        (\"standardize\", StandardScaler()),\n",
+        "        (\"clf\", model)\n",
+        "    ])\n",
+        "\n",
+        "    cv_acc = cross_val_score(pipe, X3_train, y3_train, cv=cv, scoring=\"accuracy\").mean()\n",
+        "\n",
+        "    pipe.fit(X3_train, y3_train)\n",
+        "    y3_pred = pipe.predict(X3_test)\n",
+        "    cm = confusion_matrix(y3_test, y3_pred)\n",
+        "\n",
+        "    return cv_acc, cm, pipe"
+      ],
+      "id": "87d82364",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "OvR LogReg for all classes"
+      ],
+      "id": "7d7f557f"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "logreg_results = {}\n",
+        "\n",
+        "for cls in [\"indica\", \"sativa\", \"hybrid\"]:\n",
+        "    acc, cm, model = run_ovr(\n",
+        "        LogisticRegression(max_iter=2000, solver=\"liblinear\"), \n",
+        "        cls\n",
+        "    )\n",
+        "    logreg_results[cls] = (acc, cm)\n",
+        "    print(f\"\\nLogistic Regression OvR: {cls} vs Not-{cls}\")\n",
+        "    print(\"cv Accuracy:\", acc)\n",
+        "    print(\"Confusion Matrix:\\n\", cm)"
+      ],
+      "id": "61779b28",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "OvR SVC"
+      ],
+      "id": "fa2c1efb"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "svc_results = {}\n",
+        "\n",
+        "for cls in [\"indica\", \"sativa\", \"hybrid\"]:\n",
+        "    acc, cm, model = run_ovr(\n",
+        "        SVC(kernel=\"linear\"), \n",
+        "        cls\n",
+        "    )\n",
+        "    svc_results[cls] = (acc, cm)\n",
+        "    print(f\"\\nSVC OvR: {cls} vs Not-{cls}\")\n",
+        "    print(\"cv Accuracy:\", acc)\n",
+        "    print(\"Confusion Matrix:\\n\", cm)"
+      ],
+      "id": "10e3dadc",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Q2: \n",
+        "Among the six OvR models, the best-performing classifiers were Sativa vs Not-Sativa for both Logistic Regression, with a cv accuracy ≈ 0.823 and SVC with a cv ≈ 0.807. These results make sense because Sativa strains tend to have distinct and consistent effects and flavors, making them easier to separate from Indica and Hybrid strains.\n",
+        "\n",
+        "The worst-performing models were Hybrid vs Not-Hybrid, with CV accuracies of only 0.604 (LogReg) and 0.614 (SVC). This makessense because Hybrid strains share properties with both Indica and Sativa, so their feature patterns heavily overlap the other two classes.\n",
+        "\n",
+        "Indica vs Not-Indica fell in the middle, reflecting the fact that Indica strains are more distinct than Hybrids but less separable than Sativas.\n",
+        "\n",
+        "Q3: just 2 groups"
+      ],
+      "id": "9d64224b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "cv3 = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\n",
+        "\n",
+        "def run_ovo(model, class1, class2):\n",
+        "    mask = (y3 == class1) | (y3 == class2)\n",
+        "    X3_ovo = X3[mask]\n",
+        "    y3_ovo = y3[mask]\n",
+        "\n",
+        "    y3_bin2 = (y3_ovo == class2).astype(int)\n",
+        "\n",
+        "    X3_train, X3_test, y3_train, y3_test = train_test_split(\n",
+        "        X3_ovo, y3_bin2, test_size=0.25, random_state=42, stratify=y3_bin2\n",
+        "    )\n",
+        "\n",
+        "    pipe2 = Pipeline([\n",
+        "        (\"standardize\", StandardScaler()),\n",
+        "        (\"clf\", model)\n",
+        "    ])\n",
+        "\n",
+        "    cv3_acc = cross_val_score(pipe2, X3_train, y3_train, cv=cv3, scoring=\"accuracy\").mean()\n",
+        "\n",
+        "    pipe2.fit(X3_train, y3_train)\n",
+        "    y3_pred2 = pipe2.predict(X3_test)\n",
+        "    cm2 = confusion_matrix(y3_test, y3_pred2)\n",
+        "\n",
+        "    return cv3_acc, cm2"
+      ],
+      "id": "3ae3091f",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "logreg_ovo_results = {}\n",
+        "\n",
+        "pairs = [\n",
+        "    (\"indica\", \"sativa\"),\n",
+        "    (\"indica\", \"hybrid\"),\n",
+        "    (\"sativa\", \"hybrid\")\n",
+        "]\n",
+        "\n",
+        "for c1, c2 in pairs:\n",
+        "    acc, cm = run_ovo(LogisticRegression(max_iter=2000, solver=\"liblinear\"), c1, c2)\n",
+        "    logreg_ovo_results[(c1, c2)] = (acc, cm)\n",
+        "\n",
+        "    print(f\"\\nLogistic Regression OvO: {c1} vs {c2}\")\n",
+        "    print(\"cv Accuracy:\", acc)\n",
+        "    print(\"Confusion Matrix:\\n\", cm)"
+      ],
+      "id": "a89857f3",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "svc_ovo_results = {}\n",
+        "\n",
+        "for c1, c2 in pairs:\n",
+        "    acc, cm = run_ovo(SVC(kernel=\"linear\"), c1, c2)\n",
+        "    svc_ovo_results[(c1, c2)] = (acc, cm)\n",
+        "\n",
+        "    print(f\"\\nSVC OvO: {c1} vs {c2}\")\n",
+        "    print(\"cv Accuracy:\", acc)\n",
+        "    print(\"Confusion Matrix:\\n\", cm)"
+      ],
+      "id": "86bcbd90",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Q4:\n",
+        "The OvO results show that both Logistic Regression and SVC performed best on the indica vs sativa task with accuracies ranging 0.82–0.83. These two pure types are the most distinct in terms of effects and flavors, so separating them is relatively easy.\n",
+        "\n",
+        "Performance was intermediate for sativa vs hybrid, which made sense because hybrids retain many of the uplifting descriptors associated with sativas, producing partial overlap.\n",
+        "\n",
+        "The worst performance occurred in the indica vs hybrid comparisons, where accuracies dropped to around 0.75 for both models. This makes sense too, since hybrid strains often share sedative and relaxing effects with indica strains, making them more difficult to distinguish in a linear feature space.\n",
+        "\n",
+        "Overall, the models performed best when comparing the two pure types, and worst when hybrids, whose properties blend both parent types, were involved.\n",
+        "\n",
+        "Q5:\n",
+        "By default, LogisticRegression uses the OvR approach when the response variable has more than two classes. This means it fits one binary classifier per class: Class vs. Not-Class. Sklearn only switches to multinomial logistic regression when the user explicitly requests multi_class=\"multinomial\" and chooses a solver that supports it.\n",
+        "\n",
+        "In contrast, SVC uses the OvO approach by default, fitting a separate classifier for every pair of classes and combining predictions by majority vote. This is the standard strategy for kernel SVMs and aligns with sklearn’s default multiclass behavior in the SVM family."
+      ],
+      "id": "b322ad51"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "C:\\Users\\ivpri\\anaconda3\\share\\jupyter\\kernels\\python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}

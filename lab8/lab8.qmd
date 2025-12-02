@@ -1,0 +1,402 @@
+LAB 8
+Priya Inampudi
+
+```{python}
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, StratifiedKFold
+from sklearn.metrics import confusion_matrix
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+import matplotlib.pyplot as plt
+```
+
+**PART 1**
+
+Q1: LDA
+```{python}
+df = pd.read_csv("https://www.dropbox.com/s/s2a1uoiegitupjc/cannabis_full.csv?dl=1")
+df.head()
+```
+
+```{python}
+pd.value_counts(df['Type'])
+```
+
+```{python}
+df_bin = df[(df["Type"] == "sativa") | (df["Type"] == "indica")].copy()
+
+df_bin["Type_bin"] = (df_bin["Type"] == "sativa").astype(int)
+
+df_bin.drop(columns = ['Strain', 'Effects', 'Flavor'], inplace=True)
+```
+
+```{python}
+df_bin.dropna(inplace=True)
+df_bin.isnull().sum()
+```
+
+```{python}
+X = df_bin.drop(columns=["Type", "Type_bin"])
+y = df_bin["Type_bin"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y
+)
+```
+
+```{python}
+lda_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("lda", LinearDiscriminantAnalysis())
+])
+
+lda_cv = cross_val_score(lda_pipe, X_train, y_train, cv=5, scoring="accuracy").mean()
+print("LDA CV Accuracy:", lda_cv)
+
+lda_pipe.fit(X_train, y_train)
+print("LDA Confusion Matrix:\n", confusion_matrix(y_test, lda_pipe.predict(X_test)))
+```
+
+Q2: QDA
+```{python}
+qda_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("qda", QuadraticDiscriminantAnalysis())
+])
+
+qda_cv = cross_val_score(qda_pipe, X_train, y_train, cv=5, scoring="accuracy").mean()
+print("QDA CV Accuracy:", qda_cv)
+
+qda_pipe.fit(X_train, y_train)
+print("QDA Confusion Matrix:\n", confusion_matrix(y_test, qda_pipe.predict(X_test)))
+```
+
+Q3: SVC
+```{python}
+
+svc_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("svc", SVC(kernel="linear"))
+])
+
+svc_grid = {"svc__C": [0.01, 0.1, 1, 10, 100]}
+
+svc_search = GridSearchCV(
+    svc_pipe, svc_grid, cv=5, scoring="accuracy"
+)
+
+svc_search.fit(X_train, y_train)
+
+print("Best SVC param:", svc_search.best_params_)
+print("SVC CV Accuracy:", svc_search.best_score_)
+
+svc_best = svc_search.best_estimator_
+print("SVC Confusion Matrix:\n", confusion_matrix(y_test, svc_best.predict(X_test)))
+```
+
+Q4: SVM
+```{python}
+svm_poly_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("svm", SVC(kernel="poly", degree=2))
+])
+
+svm_poly_grid = {
+    "svm__degree": [2, 3, 4],
+    "svm__C": [0.1, 1, 10]
+}
+
+svm_poly_search = GridSearchCV(
+    svm_poly_pipe, svm_poly_grid, cv=5, scoring="accuracy"
+)
+
+svm_poly_search.fit(X_train, y_train)
+
+print("Best SVM params:", svm_poly_search.best_params_)
+print("SVM CV Accuracy:", svm_poly_search.best_score_)
+
+svm_poly_best = svm_poly_search.best_estimator_
+print("SVM Confusion Matrix:\n", confusion_matrix(y_test, svm_poly_best.predict(X_test)))
+
+```
+
+**PART 2**
+
+Q1: decision tree
+```{python}
+df2 = pd.read_csv("https://www.dropbox.com/s/s2a1uoiegitupjc/cannabis_full.csv?dl=1")
+df2.head()
+pd.value_counts(df2['Type'])
+```
+
+```{python}
+df2.drop(columns = ['Strain', 'Effects', 'Flavor'], inplace=True)
+df2.dropna(inplace=True)
+df2.isnull().sum()
+```
+
+```{python}
+X2 = df2.drop(columns=["Type"])
+y2 = df2["Type"]
+
+X2_train, X2_test, y2_train, y2_test = train_test_split(
+    X2, y2, test_size=0.25, random_state=42, stratify=y2
+)
+```
+
+```{python}
+dt = DecisionTreeClassifier(
+    max_depth=4,
+    min_samples_leaf=5,
+    random_state=42
+)
+dt.fit(X2_train, y2_train)
+print(dt.classes_)
+```
+
+```{python}
+dt_cv_acc = cross_val_score(dt, X2_train, y2_train, cv=5, scoring="accuracy").mean()
+print("Decision Tree CV Accuracy:", dt_cv_acc)
+```
+
+```{python}
+print("Decision Tree Confusion Matrix:\n",
+      pd.DataFrame(confusion_matrix(y2_test, dt.predict(X2_test)),
+                   index=dt.classes_, columns=dt.classes_))
+```
+
+```{python}
+plt.figure(figsize=(20,8))
+plot_tree(dt, feature_names=X2.columns, class_names=[str(c) for c in dt.classes_], filled=True)
+plt.title("Part 2 decision tree for predicting cannabis type")
+plt.show()
+```
+
+Q2: repeating analyses
+
+LDA
+```{python}
+lda2_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("lda", LinearDiscriminantAnalysis())
+])
+
+lda2_cv = cross_val_score(lda2_pipe, X2_train, y2_train, cv=5, scoring="accuracy").mean()
+print("LDA CV Accuracy:", lda2_cv)
+
+lda2_pipe.fit(X2_train, y2_train)
+print("LDA Confusion Matrix:\n",
+      pd.DataFrame(confusion_matrix(y2_test, lda2_pipe.predict(X2_test)),
+                   index=lda2_pipe.named_steps["lda"].classes_,
+                   columns=lda2_pipe.named_steps["lda"].classes_))
+```
+
+QDA
+```{python}
+qda2_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("qda", QuadraticDiscriminantAnalysis())
+])
+
+qda2_cv = cross_val_score(qda2_pipe, X2_train, y2_train, cv=5, scoring="accuracy").mean()
+print("QDA CV Accuracy:", qda2_cv)
+
+qda2_pipe.fit(X2_train, y2_train)
+print("QDA Confusion Matrix:\n",
+      pd.DataFrame(confusion_matrix(y2_test, qda2_pipe.predict(X2_test)),
+                   index=qda2_pipe.named_steps["qda"].classes_,
+                   columns=qda2_pipe.named_steps["qda"].classes_))
+```
+
+KNN - multiclass
+```{python}
+knn_pipe = Pipeline([
+    ("standardize", StandardScaler()),
+    ("knn", KNeighborsClassifier())
+])
+
+knn_grid = {
+    "knn__n_neighbors": list(range(1, 51)),
+    "knn__weights": ["uniform", "distance"]
+}
+
+knn_search = GridSearchCV(
+    knn_pipe,
+    knn_grid,
+    scoring="accuracy",
+    cv=5,
+    n_jobs=-1
+)
+
+knn_search.fit(X2_train, y2_train)
+
+print("Best KNN Params:", knn_search.best_params_)
+print("KNN CV Accuracy:", knn_search.best_score_)
+
+knn_best = knn_search.best_estimator_
+print("KNN Confusion Matrix:\n",
+      pd.DataFrame(confusion_matrix(y2_test, knn_best.predict(X2_test)),
+                   index=knn_best.classes_,
+                   columns=knn_best.classes_))
+```
+
+Q3:
+
+All model metrics were worse in Part Two than in Part One. In the binary setting woth Indica vs. Sativa, accuracies were in the 0.80–0.84 range, but when Hybrid strains were included, the best multiclass models, Decision Tree and LDA, achieved only about 0.63 accuracy, and KNN dropped to around 0.59. QDA performed especially poorly with a CV accuracy ≈ 0.26, which is expected since QDA is unstable with high-dimensional dummy variables and class covariance matrices that are difficult to estimate.
+
+Across all models, Hybrid strains were the most frequently misclassified. This makes sense, as hybrids biologically and chemically share properties with both Indica and Sativa, so their effects and flavors overlap heavily with the other two categories. As a result, hybrids were often predicted as Indica or Sativa, and Sativa strains were frequently predicted as Hybrid. Indica was the most distinct and therefore the most accurately classified class.
+
+Overall, the confusion matrices clearly show that the introduction of Hybrid increased class overlap and ambiguity, leading to lower performance across all multiclass classifiers.
+
+**PART 3**
+
+Q1
+```{python}
+df3 = pd.read_csv("https://www.dropbox.com/s/s2a1uoiegitupjc/cannabis_full.csv?dl=1")
+df3 = df.drop(columns=["Strain", "Effects", "Flavor"], errors="ignore")
+
+df3.dropna(inplace=True)
+
+X3 = df3.drop(columns=["Type"])
+y3 = df3["Type"] 
+```
+
+```{python}
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+def run_ovr(model, target_class):
+    y3_bin = (y3 == target_class).astype(int)
+
+    X3_train, X3_test, y3_train, y3_test = train_test_split(
+        X3, y3_bin, test_size=0.25, random_state=42, stratify=y3_bin
+    )
+
+    pipe = Pipeline([
+        ("standardize", StandardScaler()),
+        ("clf", model)
+    ])
+
+    cv_acc = cross_val_score(pipe, X3_train, y3_train, cv=cv, scoring="accuracy").mean()
+
+    pipe.fit(X3_train, y3_train)
+    y3_pred = pipe.predict(X3_test)
+    cm = confusion_matrix(y3_test, y3_pred)
+
+    return cv_acc, cm, pipe
+```
+
+OvR LogReg for all classes
+```{python}
+logreg_results = {}
+
+for cls in ["indica", "sativa", "hybrid"]:
+    acc, cm, model = run_ovr(
+        LogisticRegression(max_iter=2000, solver="liblinear"), 
+        cls
+    )
+    logreg_results[cls] = (acc, cm)
+    print(f"\nLogistic Regression OvR: {cls} vs Not-{cls}")
+    print("cv Accuracy:", acc)
+    print("Confusion Matrix:\n", cm)
+```
+
+OvR SVC
+```{python}
+svc_results = {}
+
+for cls in ["indica", "sativa", "hybrid"]:
+    acc, cm, model = run_ovr(
+        SVC(kernel="linear"), 
+        cls
+    )
+    svc_results[cls] = (acc, cm)
+    print(f"\nSVC OvR: {cls} vs Not-{cls}")
+    print("cv Accuracy:", acc)
+    print("Confusion Matrix:\n", cm)
+```
+
+Q2: 
+Among the six OvR models, the best-performing classifiers were Sativa vs Not-Sativa for both Logistic Regression, with a cv accuracy ≈ 0.823 and SVC with a cv ≈ 0.807. These results make sense because Sativa strains tend to have distinct and consistent effects and flavors, making them easier to separate from Indica and Hybrid strains.
+
+The worst-performing models were Hybrid vs Not-Hybrid, with CV accuracies of only 0.604 (LogReg) and 0.614 (SVC). This makessense because Hybrid strains share properties with both Indica and Sativa, so their feature patterns heavily overlap the other two classes.
+
+Indica vs Not-Indica fell in the middle, reflecting the fact that Indica strains are more distinct than Hybrids but less separable than Sativas.
+
+Q3: just 2 groups
+```{python}
+cv3 = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+def run_ovo(model, class1, class2):
+    mask = (y3 == class1) | (y3 == class2)
+    X3_ovo = X3[mask]
+    y3_ovo = y3[mask]
+
+    y3_bin2 = (y3_ovo == class2).astype(int)
+
+    X3_train, X3_test, y3_train, y3_test = train_test_split(
+        X3_ovo, y3_bin2, test_size=0.25, random_state=42, stratify=y3_bin2
+    )
+
+    pipe2 = Pipeline([
+        ("standardize", StandardScaler()),
+        ("clf", model)
+    ])
+
+    cv3_acc = cross_val_score(pipe2, X3_train, y3_train, cv=cv3, scoring="accuracy").mean()
+
+    pipe2.fit(X3_train, y3_train)
+    y3_pred2 = pipe2.predict(X3_test)
+    cm2 = confusion_matrix(y3_test, y3_pred2)
+
+    return cv3_acc, cm2
+```
+
+```{python}
+logreg_ovo_results = {}
+
+pairs = [
+    ("indica", "sativa"),
+    ("indica", "hybrid"),
+    ("sativa", "hybrid")
+]
+
+for c1, c2 in pairs:
+    acc, cm = run_ovo(LogisticRegression(max_iter=2000, solver="liblinear"), c1, c2)
+    logreg_ovo_results[(c1, c2)] = (acc, cm)
+
+    print(f"\nLogistic Regression OvO: {c1} vs {c2}")
+    print("cv Accuracy:", acc)
+    print("Confusion Matrix:\n", cm)
+```
+
+```{python}
+svc_ovo_results = {}
+
+for c1, c2 in pairs:
+    acc, cm = run_ovo(SVC(kernel="linear"), c1, c2)
+    svc_ovo_results[(c1, c2)] = (acc, cm)
+
+    print(f"\nSVC OvO: {c1} vs {c2}")
+    print("cv Accuracy:", acc)
+    print("Confusion Matrix:\n", cm)
+```
+
+Q4:
+The OvO results show that both Logistic Regression and SVC performed best on the indica vs sativa task with accuracies ranging 0.82–0.83. These two pure types are the most distinct in terms of effects and flavors, so separating them is relatively easy.
+
+Performance was intermediate for sativa vs hybrid, which made sense because hybrids retain many of the uplifting descriptors associated with sativas, producing partial overlap.
+
+The worst performance occurred in the indica vs hybrid comparisons, where accuracies dropped to around 0.75 for both models. This makes sense too, since hybrid strains often share sedative and relaxing effects with indica strains, making them more difficult to distinguish in a linear feature space.
+
+Overall, the models performed best when comparing the two pure types, and worst when hybrids, whose properties blend both parent types, were involved.
+
+Q5:
+By default, LogisticRegression uses the OvR approach when the response variable has more than two classes. This means it fits one binary classifier per class: Class vs. Not-Class. Sklearn only switches to multinomial logistic regression when the user explicitly requests multi_class="multinomial" and chooses a solver that supports it.
+
+In contrast, SVC uses the OvO approach by default, fitting a separate classifier for every pair of classes and combining predictions by majority vote. This is the standard strategy for kernel SVMs and aligns with sklearn’s default multiclass behavior in the SVM family.
